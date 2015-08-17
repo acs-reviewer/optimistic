@@ -6,6 +6,7 @@ import javax.persistence.*;
  * Created by lukoyanov on 8/17/15.
  */
 @Entity
+@Table(name = "User")
 public class User {
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
@@ -41,4 +42,19 @@ public class User {
         this.param = param;
     }
 
+    public long getVersion() {
+        return version;
+    }
+
+    public void setVersion(long version) {
+        this.version = version;
+    }
+
+    public long getId() {
+        return id;
+    }
+
+    public void setId(long id) {
+        this.id = id;
+    }
 }

@@ -26,6 +26,7 @@ public class UserController {
     private PlatformTransactionManager transactionManager;
 
 
+    //Инициализируем некоторые начальные значения в БД
     @PostConstruct
     private void init(){
         repo.save(new User("Ivan", 1));
@@ -47,24 +48,56 @@ public class UserController {
         TransactionStatus status = transactionManager.getTransaction(new DefaultTransactionDefinition());
         User old = repo.findByNameLike(name).get(0);
 
+
+        //Так как при попытке реализовать обработку OptimisticLockexception
+        // хибернейт выбрасывает org.hibernate.StaleObjectStateException, который невозможно отловить в данном участке кода
+        // по этой причине я решил сэмулировать определение Optimistic Locking и обработать его самостоятельно
+        long version;
+        long id;
         try {
-            Thread.sleep(3000);
+            System.out.println("Transaction begin");
+
             if (old != null) {
-                System.out.println("User is exist:" + old.getName() + ":" + old.getParam());
-                old.setParam(param);
-                repo.save(old);
+
+
+                //Сохраним version
+                version = old.getVersion();
+                id = old.getId();
+                System.out.println("Version:" + version + ", id:" + id);
+
+                //Эмулируем задержку между чтением сущности и попыткой её записи
+                Thread.sleep(5000);
+
+                //Оффтопик: логгером пользоваться умею, но при определении его spring boot продолжает использовать собственный
+                //решил не переопределять, и писать все в консоль
+                System.out.println("User exist:" + old.getName() + ":" + old.getParam());
+
+
+                //Читаем version напрямую
+                System.out.println("read version:" + repo.getVersionId(id));
+                if(version == repo.getVersionId(id)) {
+                    old.setParam(param);
+                    repo.save(old);
+                    transactionManager.commit(status);
+                    System.out.println("Transaction commit");
+                } else {
+                    System.out.println("Optimistic locking detected - rollback");
+                    status.setRollbackOnly();
+                }
             } else {
+                //В случае новой сущности - Optimistic locking не возникает
                 repo.save(new User(name, param));
             }
-            transactionManager.commit(status);
+
         } catch (InterruptedException e) {
             System.out.println(String.format("Interrupted exception:%s", e));
         }
+        //Первоначальная моя попытка отловить Optimistic lock exception
         catch (StaleObjectStateException e1) {
             System.out.println(String.format("Optimistic lock exception:%s", e1));
-            transactionManager.rollback(status);
+            status.setRollbackOnly();
         }
-
+        //Покажем итоговое значение
         return repo.findByNameLike(name);
     }
 }
