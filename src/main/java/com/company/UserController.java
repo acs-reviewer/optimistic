@@ -46,7 +46,7 @@ public class UserController {
     @RequestMapping("saveUserOrUpdateUser")
     public Object saveUserOrUpdateUser(@RequestParam(value = "name") String name, @RequestParam(value = "param") long param){
         TransactionStatus status = transactionManager.getTransaction(new DefaultTransactionDefinition());
-        User old = repo.findByNameLike(name).get(0);
+        User old = repo.findByNameLike(name).get(0);// mns: возможно NPE
 
 
         //Так как при попытке реализовать обработку OptimisticLockexception
@@ -76,6 +76,7 @@ public class UserController {
                 //Читаем version напрямую
                 System.out.println("read version:" + repo.getVersionId(id));
                 if(version == repo.getVersionId(id)) {
+                    // mns: А если тут другой поток поменял значение?
                     old.setParam(param);
                     repo.save(old);
                     transactionManager.commit(status);
